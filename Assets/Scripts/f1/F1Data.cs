@@ -6,6 +6,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.Networking;
+using MiddleVR;
 
 public class F1Data : MonoBehaviour
 {
@@ -17,7 +18,7 @@ public class F1Data : MonoBehaviour
     private const string intervalUrl = "https://api.openf1.org/v1/intervals?session_key={0}&driver_number={1}";
     private const string driversUrl = "https://api.openf1.org/v1/drivers?session_key={0}";
     private int scaleFactor = 1;
-    private int maxDataPull = 2;
+    private int maxDataPull = 1;
     private bool invoked = false;
     public TMP_Text DebugText;
 
@@ -86,6 +87,7 @@ public class F1Data : MonoBehaviour
 
                             // Sort data by date
                             carDatas.data = carDatas.data.OrderBy(c => DateTime.Parse(c.date)).ToList();
+                            //carDatas.data = carDatas.data.OrderBy(c => MVR.Kernel.GetTime().Parse(c.date)).ToList();
                             intervalDatas.data = intervalDatas.data.OrderBy(i => DateTime.Parse(i.date)).ToList();
 
                             // Merge location, car data and intervals data

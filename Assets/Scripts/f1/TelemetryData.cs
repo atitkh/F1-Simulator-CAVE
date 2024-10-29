@@ -31,7 +31,7 @@ public class TelemetryData : MonoBehaviour
 
         Driver driver = simController.selectedDriver;
         TrackData trackData = simController.selectedDriverTrackData;
-        Debug.Log("Telemetry updated for driver: " + driver.full_name);
+        // Debug.Log("Telemetry updated for driver: " + driver.full_name);
         // Update telemetry data
         telemetryDataPanel.transform.Find("Name").GetComponent<TMP_Text>().text = driver.full_name.Split(' ')[1];
         telemetryDataPanel.transform.Find("RPM").GetComponent<TMP_Text>().text = "RPM: " + trackData.carData.rpm;

@@ -4,8 +4,10 @@ public class ReplicateMovement : MonoBehaviour
 {
     // References to main car and replicated objects
     public SimController simController;
+    public GameObject carParent;
     private Transform mainCar;              // The car in the main scene (moving car)
-    public Transform replicatedCar;       // The car in the replicated scene (fixed car)
+    public GameObject replicatedCar;       // The car in the replicated scene (fixed car)
+    private Transform replicatedCarTransform;       // The car in the replicated scene (fixed car)
     public Transform replicatedTrack;     // The track in the replicated scene (moving track)
 
     // For tracking the car’s last local position
@@ -22,8 +24,13 @@ public class ReplicateMovement : MonoBehaviour
 
     void Update()
     {
+        ReloadCar();
+        if(simController.carModels.Count == 0)
+        {
+            return;
+        }
         mainCar = simController.carModels[simController.selectedDriver.driver_number].transform;
-        if (mainCar != null && replicatedTrack != null && replicatedCar != null)
+        if (mainCar != null && replicatedTrack != null && replicatedCarTransform != null)
         {
             // Calculate the movement delta of the main car in local space
             Vector3 mainCarLocalMovementDelta = mainCar.localPosition - lastMainCarLocalPosition;
@@ -36,10 +43,23 @@ public class ReplicateMovement : MonoBehaviour
         }
 
         // Ensure the replicated car remains fixed
-        replicatedCar.localPosition = Vector3.zero; // or set any desired fixed position
-        replicatedCar.localRotation = Quaternion.identity; // or any desired fixed rotation
+        replicatedCarTransform.localPosition = Vector3.zero; // or set any desired fixed position
+        replicatedCarTransform.localRotation = Quaternion.identity; // or any desired fixed rotation
 
         SyncRotation();
+    }
+
+    void ReloadCar()
+    {
+        // // Set the driver acronym
+        if(replicatedCar == null)
+        {
+            replicatedCar = Instantiate(simController.carPrefab, Vector3.zero, Quaternion.identity, carParent.transform);
+        }
+        replicatedCarTransform = replicatedCar.transform;
+        replicatedCar.GetComponent<CarController>().DriverAcronym = simController.selectedDriver.name_acronym;
+        replicatedCar.GetComponent<CarController>().simController = this.simController;
+        replicatedCar.GetComponent<CarController>().driver = simController.selectedDriver;
     }
 
      void SyncRotation()
@@ -47,7 +67,11 @@ public class ReplicateMovement : MonoBehaviour
         if (mainCar != null && replicatedTrack != null)
         {
             // Apply rotation to the replicated car (if needed)
-            replicatedCar.localRotation = mainCar.localRotation;
+            replicatedCarTransform.localRotation = mainCar.localRotation;
+
+            // Apply rotation to the replicated Car's wheels (if needed)
+            // replicatedCar.GetComponent<CarController>().TurnWheel(replicatedCar.GetComponent<CarController>().frontLeftWheel, mainCar.localRotation.eulerAngles.y);
+            // replicatedCar.GetComponent<CarController>().TurnWheel(replicatedCar.GetComponent<CarController>().frontRightWheel, mainCar.localRotation.eulerAngles.y);
         }
     }
 }

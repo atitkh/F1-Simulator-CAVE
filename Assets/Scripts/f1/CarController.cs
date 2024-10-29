@@ -2,25 +2,41 @@ using TMPro;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using MiddleVR;
 
 public class CarController : MonoBehaviour
 {
-    private SimController simController;
+    public SimController simController;
     public string DriverAcronym;
-    private Driver driver;
+    public Driver driver;
     private TrackData trackData;
 
-    // Start is called before the first frame update
+    // wheels for rotation and turning
+    public GameObject frontLeftWheel;
+    public GameObject frontRightWheel;
+    public GameObject rearLeftWheel;
+    public GameObject rearRightWheel;
+
+    private float wheelSpeed = 0f;
+    private float turnAngle = 0f;
+
+    // Store the car's previous rotation
+    private Quaternion previousRotation;
+
     void Start()
     {
         simController.OnTelemetryUpdated.AddListener(OnTelemetryUpdated);
         GetComponentInChildren<TMP_Text>().text = DriverAcronym;
+
+        // Initialize previous rotation
+        previousRotation = transform.rotation;
     }
 
-    // Update is called once per frame
     void Update()
     {
-        
+        OnTelemetryUpdated();
+        // Calculate dynamic wheel turning based on the car's rotation
+        // CalculateWheelTurn();
     }
 
     public void OnTelemetryUpdated()
@@ -30,7 +46,71 @@ public class CarController : MonoBehaviour
             return;
         }
 
-        Driver driver = simController.selectedDriver;
-        TrackData trackData = simController.selectedDriverTrackData;
+        if (simController.selectedDriver.driver_number == driver.driver_number)
+        {
+            trackData = simController.selectedDriverTrackData;
+            GetComponentInChildren<TMP_Text>().text = DriverAcronym;
+            if (simController.isSimulating)
+            {
+                SetWheelSpeed(trackData.carData.speed);
+            }
+        }
+    }
+
+    public void SpinWheel(GameObject wheel, float speed)
+    {
+        float speedInMetersPerSecond = speed * 1000f / 3600f; // Convert km/h to m/s
+        float wheelRadius = 0.33f;  // Adjust the radius based on your wheel model
+        float wheelCircumference = 2 * Mathf.PI * wheelRadius;
+
+        float rotationSpeed = speedInMetersPerSecond / wheelCircumference;
+        float degreesPerSecond = rotationSpeed * Mathf.Rad2Deg;
+
+        // Rotate the wheel around its local right axis for spinning effect
+        wheel.transform.Rotate(Vector3.up, (float)(degreesPerSecond * MVR.Kernel.GetDeltaTime()));
+    }
+
+    // Method to calculate dynamic wheel turning based on car rotation
+    public void CalculateWheelTurn()
+    {
+        // Get the current car rotation
+        Quaternion currentRotation = transform.rotation;
+
+        // Calculate the difference in rotation (yaw)
+        float rotationDelta = Quaternion.Angle(previousRotation, currentRotation);
+
+        // Check if there is a significant change in yaw to apply turning
+        if (rotationDelta > 0.1f)
+        {
+            Vector3 deltaEuler = (currentRotation.eulerAngles - previousRotation.eulerAngles);
+            float yawDelta = Mathf.Clamp(deltaEuler.y, -30f, 30f); // limit the wheel turn angle
+            SetWheelTurn(yawDelta);
+        }
+
+        // Update previous rotation for the next frame
+        previousRotation = currentRotation;
+    }
+
+    // Quaternion-based wheel turning
+    public void TurnWheel(GameObject wheel, float angle)
+    {
+        Quaternion localRotation = Quaternion.Euler(0, angle, 0);
+        wheel.transform.localRotation = localRotation * wheel.transform.localRotation; // Apply turn
+    }
+
+    public void SetWheelSpeed(float speed)
+    {
+        wheelSpeed = speed;
+        SpinWheel(frontLeftWheel, -1 * wheelSpeed);
+        SpinWheel(frontRightWheel, wheelSpeed);
+        SpinWheel(rearLeftWheel, -1 * wheelSpeed);
+        SpinWheel(rearRightWheel, wheelSpeed);
+    }
+
+    public void SetWheelTurn(float angle)
+    {
+        turnAngle = angle;
+        TurnWheel(frontLeftWheel, turnAngle);
+        TurnWheel(frontRightWheel, turnAngle);
     }
 }

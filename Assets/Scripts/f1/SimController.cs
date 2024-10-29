@@ -5,6 +5,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
+using MiddleVR;
 
 public class SimController : MonoBehaviour
 {
@@ -65,7 +66,7 @@ public class SimController : MonoBehaviour
             LoadCar(driver.driver_number, driver.name_acronym);
         }
         selectDriver(1);
-        StartSimulation();
+        // StartSimulation();
     }
 
     private void LoadCar(int driver_number, string driver_acronym = "DRIVER")
@@ -80,6 +81,8 @@ public class SimController : MonoBehaviour
 
         // Set the driver acronym
         car.GetComponent<CarController>().DriverAcronym = driver_acronym;
+        car.GetComponent<CarController>().simController = this;
+        car.GetComponent<CarController>().driver = F1Data.GetDriver(driver_number);
     }
 
     private void loadLeaderboard()

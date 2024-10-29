@@ -12,6 +12,7 @@ public class UI : MonoBehaviour
     public TMP_Dropdown driverDropdown;
     public Slider speedSlider;
     public GameObject menuPanel;
+    public GameObject startSimulationButton;
     // [SerializeField] private OVRInput.Controller controller;
     private bool readyToStart = false;
 
@@ -21,6 +22,7 @@ public class UI : MonoBehaviour
         {
             readyToStart = true;
             populateDriverDropdown();
+            startSimulationButton.SetActive(true);
         });
     }
 
@@ -71,14 +73,12 @@ public class UI : MonoBehaviour
 
 
         driverDropdown.options.Clear();
-        foreach (Driver driver in simController.F1Data.AllDrivers())
+        foreach (int driver_number in simController.leaderboard.Keys)
         {
-            driverDropdown.options.Add(new TMP_Dropdown.OptionData(driver.full_name));
-
+            driverDropdown.options.Add(new TMP_Dropdown.OptionData(simController.F1Data.GetDriver(driver_number).full_name));
             driverDropdown.onValueChanged.AddListener(delegate
             {
-                var selectedDriver = simController.F1Data.AllDrivers()[driverDropdown.value];
-                simController.selectDriver(selectedDriver.driver_number);
+                simController.selectDriver(driver_number);
             });
         }
     }
