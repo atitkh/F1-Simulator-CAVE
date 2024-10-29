@@ -1,5 +1,7 @@
 using TMPro;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 using MiddleVR;
@@ -62,25 +64,27 @@ public class UI : MonoBehaviour
 
     private void populateDriverDropdown()
     {
-        // driverDropdown.ClearOptions();
-        // var driverOptions = simController.F1Data.AllDrivers().ConvertAll(d => new Dropdown.OptionData(d.full_name));
-        // driverDropdown.AddOptions(driverOptions);
-        // driverDropdown.onValueChanged.AddListener(delegate
-        // {
-        //     var selectedDriver = simController.F1Data.AllDrivers()[driverDropdown.value];
-        //     simController.selectDriver(selectedDriver.driver_number);
-        // });
-
-
-        driverDropdown.options.Clear();
-        foreach (int driver_number in simController.leaderboard.Keys)
+        driverDropdown.ClearOptions();
+        var driverOptions = simController.F1Data.AllDrivers();
+        var driversToRemove = new List<Driver>();
+        driverOptions.ForEach(driver =>
         {
-            driverDropdown.options.Add(new TMP_Dropdown.OptionData(simController.F1Data.GetDriver(driver_number).full_name));
-            driverDropdown.onValueChanged.AddListener(delegate
+            if (!simController.F1Data.HasDriverData(driver.driver_number))
             {
-                simController.selectDriver(driver_number);
-            });
-        }
+                driversToRemove.Add(driver);
+            }
+        });
+        driversToRemove.ForEach(driver => driverOptions.Remove(driver));
+        driverDropdown.AddOptions(driverOptions.ConvertAll(d => new TMP_Dropdown.OptionData(d.full_name)));
+        driverDropdown.value = 0;
+    }
+
+    public void OnDropdownValueChanged()
+    {
+        int pickedDriver = driverDropdown.value;
+        string driverName = driverDropdown.options[pickedDriver].text;
+        Driver selectedDriver = simController.F1Data.GetDriverByName(driverName);
+        simController.selectDriver(selectedDriver.driver_number);
     }
 
     public void ToggleMenu()
@@ -94,6 +98,7 @@ public class UI : MonoBehaviour
         {
             simController.timeMultiplier = 1;
             simController.StartSimulation();
+            startSimulationButton.SetActive(false);
         }
     }
 

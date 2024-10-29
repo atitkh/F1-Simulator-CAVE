@@ -18,7 +18,7 @@ public class F1Data : MonoBehaviour
     private const string intervalUrl = "https://api.openf1.org/v1/intervals?session_key={0}&driver_number={1}";
     private const string driversUrl = "https://api.openf1.org/v1/drivers?session_key={0}";
     private int scaleFactor = 1;
-    private int maxDataPull = 1;
+    private int maxDataPull = 2;
     private bool invoked = false;
     public TMP_Text DebugText;
 
@@ -310,6 +310,16 @@ public class F1Data : MonoBehaviour
     public Driver GetDriver(int driverId)
     {
         return allDrivers.ContainsKey(driverId) ? allDrivers[driverId] : null;
+    }
+
+    public Driver GetDriverByName(string driverName)
+    {
+        return allDrivers.Values.FirstOrDefault(d => d.full_name == driverName);
+    }
+
+    public bool HasDriverData(int driverId)
+    {
+        return allTrackData.ContainsKey(driverId);
     }
 
     public List<Driver> AllDrivers()

@@ -7,7 +7,11 @@ using MiddleVR;
 public class CarController : MonoBehaviour
 {
     public SimController simController;
+    public GameObject nameTag;
+    public GameObject driverDetails;
+    [HideInInspector]
     public string DriverAcronym;
+    public bool isReplica = false;
     public Driver driver;
     private TrackData trackData;
 
@@ -26,16 +30,24 @@ public class CarController : MonoBehaviour
     void Start()
     {
         simController.OnTelemetryUpdated.AddListener(OnTelemetryUpdated);
-        GetComponentInChildren<TMP_Text>().text = DriverAcronym;
+        nameTag.GetComponentInChildren<TMP_Text>().text = DriverAcronym;
 
         // Initialize previous rotation
         previousRotation = transform.rotation;
+
+        if (isReplica)
+        {
+            driverDetails.SetActive(true);
+            nameTag.SetActive(false);
+        }
     }
 
     void Update()
     {
-        OnTelemetryUpdated();
-        // Calculate dynamic wheel turning based on the car's rotation
+        if (isReplica && simController.isSimulating)
+        {
+            OnTelemetryUpdated();
+        }
         // CalculateWheelTurn();
     }
 
@@ -49,7 +61,7 @@ public class CarController : MonoBehaviour
         if (simController.selectedDriver.driver_number == driver.driver_number)
         {
             trackData = simController.selectedDriverTrackData;
-            GetComponentInChildren<TMP_Text>().text = DriverAcronym;
+            driverDetails.GetComponentInChildren<TMP_Text>().text = DriverAcronym;
             if (simController.isSimulating)
             {
                 SetWheelSpeed(trackData.carData.speed);
