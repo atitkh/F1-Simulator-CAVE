@@ -24,6 +24,11 @@ public class CarController : MonoBehaviour
     private float wheelSpeed = 0f;
     private float turnAngle = 0f;
 
+    public Texture2D barTexture; // select some white or gray texture
+    public float barWidth = 5;
+    public float barHeight = 40;
+    public float barSpace = 7;
+
     // Store the car's previous rotation
     private Quaternion previousRotation;
 
@@ -61,11 +66,33 @@ public class CarController : MonoBehaviour
         if (simController.selectedDriver.driver_number == driver.driver_number)
         {
             trackData = simController.selectedDriverTrackData;
-            driverDetails.GetComponentInChildren<TMP_Text>().text = DriverAcronym;
+             
+            var telemetryPanelUpdater = driverDetails.GetComponentInChildren<TelemetryPanelUpdater>();
+            telemetryPanelUpdater.trackData = trackData;
+            telemetryPanelUpdater.driver = driver;
+
             if (simController.isSimulating)
             {
                 SetWheelSpeed(trackData.carData.speed);
             }
+        }
+    }
+
+    // private void OnGUI() {
+    //     if (isReplica && simController.isSimulating && trackData != null)
+    //     {
+    //         DisplayBar(trackData.carData.throttle);
+    //     }
+    // }
+
+    void DisplayBar(int speed)
+    {
+        Vector2 pos = new Vector2(Screen.width - 120, Screen.height - 50);
+        for (float v = 1; v <= speed; v += 10)
+        {
+            GUI.color = Color.green;
+            GUI.DrawTexture(new Rect(pos.x, pos.y, barWidth, barHeight), barTexture); // draw a single bar
+            pos.x += barSpace; // next bar at barSpace pixels to the right
         }
     }
 

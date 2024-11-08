@@ -66,7 +66,7 @@ public class SimController : MonoBehaviour
             LoadCar(driver.driver_number, driver.name_acronym);
         }
         selectDriver(1);
-        // StartSimulation();
+        StartSimulation();
     }
 
     private void LoadCar(int driver_number, string driver_acronym = "DRIVER")
