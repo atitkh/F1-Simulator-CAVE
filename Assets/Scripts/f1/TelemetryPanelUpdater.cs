@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Networking;
 using TMPro;
 
 public class TelemetryPanelUpdater : MonoBehaviour
@@ -16,6 +17,7 @@ public class TelemetryPanelUpdater : MonoBehaviour
     public Driver driver;
     public TrackData trackData;
 
+    private string headshotUrl = "";
     private Vector3 OriginalRpmBarScale;
     private Vector3 OriginalBrakeBarScale;
     private Vector3 OriginalThrottleBarScale;
@@ -36,7 +38,12 @@ public class TelemetryPanelUpdater : MonoBehaviour
 
     // Update is called once per frame
     void Update()
-    {        
+    {   
+        if (headshotUrl != driver.headshot_url)
+        {
+            headshotUrl = driver.headshot_url;
+            StartCoroutine(LoadHeadshot(headshotUrl));
+        }
         // Update UI
         FName.text = driver.first_name;
         LName.text = driver.last_name;
@@ -62,5 +69,21 @@ public class TelemetryPanelUpdater : MonoBehaviour
 
         RpmBar.transform.localScale = new Vector3(rpmScale, RpmBar.transform.localScale.y, RpmBar.transform.localScale.z);
         RpmBar.transform.localPosition = new Vector3(Mathf.Round(OriginalRpmBarPosition.x) + (-0.5f * (1 - rpmScale)), RpmBar.transform.localPosition.y, RpmBar.transform.localPosition.z);
+    }
+
+    IEnumerator LoadHeadshot(string url)
+    {
+        UnityWebRequest www = UnityWebRequestTexture.GetTexture(url);
+        yield return www.SendWebRequest();
+
+        if (www.result != UnityWebRequest.Result.Success)
+        {
+            Debug.Log(www.error);
+        }
+        else
+        {
+            Texture2D texture = ((DownloadHandlerTexture)www.downloadHandler).texture;
+            Headshot.GetComponent<Renderer>().material.mainTexture = texture;
+        }
     }
 }
