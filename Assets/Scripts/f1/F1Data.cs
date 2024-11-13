@@ -18,9 +18,10 @@ public class F1Data : MonoBehaviour
     private const string intervalUrl = "https://api.openf1.org/v1/intervals?session_key={0}&driver_number={1}";
     private const string driversUrl = "https://api.openf1.org/v1/drivers?session_key={0}";
     private int scaleFactor = 1;
-    private int maxDataPull = 2;
+    private int maxDataPull = 20;
     private bool invoked = false;
     public TMP_Text DebugText;
+    public bool APILocal = true;
 
     private void Update()
     {
@@ -41,8 +42,14 @@ public class F1Data : MonoBehaviour
         string carDataRequestUrl = string.Format(carDataUrl, sessionKey, driverId, startTime, endTime);
         string intervalDataRequestUrl = string.Format(intervalUrl, sessionKey, driverId);
 
-        StartCoroutine(FetchTrackData(driverId, locationRequestUrl, carDataRequestUrl, intervalDataRequestUrl));
+        if (!APILocal){
+            StartCoroutine(FetchTrackData(driverId, locationRequestUrl, carDataRequestUrl, intervalDataRequestUrl));
+        }
+        else {
+            FetchTrackDataLocal(driverId);
+        }
     }
+
     IEnumerator FetchTrackData(int driverId, string locationRequestUrl, string carDataRequestUrl, string intervalDataRequestUrl)
     {
         using (UnityWebRequest locationRequest = UnityWebRequest.Get(locationRequestUrl))
@@ -112,6 +119,56 @@ public class F1Data : MonoBehaviour
                 }
             }
         }
+    }
+
+    public void FetchTrackDataLocal(int driverId) {
+        var locationpath = "Assets/Scripts/datas/location/" + driverId + ".json";
+        var carDatapath = "Assets/Scripts/datas/car_data/" + driverId + ".json";
+        var intervalDatapath = "Assets/Scripts/datas/intervals/" + driverId + ".json";
+        var locationtext = System.IO.File.ReadAllText(locationpath);
+        var carDatatext = System.IO.File.ReadAllText(carDatapath);
+        var intervalDatatext = System.IO.File.ReadAllText(intervalDatapath);
+
+        try
+                {
+                    string locationJson = "{\"data\":" + locationtext + "}";
+                    LocationData locationDatas = JsonUtility.FromJson<LocationData>(locationJson);
+
+                    // Sort location data by date
+                    locationDatas.data = locationDatas.data.OrderBy(l => DateTime.Parse(l.date)).ToList();
+
+                        try
+                        {
+                            string carDataJson = "{\"data\":" + carDatatext + "}";
+                            CarData carDatas = JsonUtility.FromJson<CarData>(carDataJson);
+
+                            string intervalDataJson = "{\"data\":" + intervalDatatext + "}";
+                            IntervalList intervalDatas = JsonUtility.FromJson<IntervalList>(intervalDataJson);
+
+                            // Sort data by date
+                            carDatas.data = carDatas.data.OrderBy(c => DateTime.Parse(c.date)).ToList();
+                            //carDatas.data = carDatas.data.OrderBy(c => MVR.Kernel.GetTime().Parse(c.date)).ToList();
+                            intervalDatas.data = intervalDatas.data.OrderBy(i => DateTime.Parse(i.date)).ToList();
+
+                            // Merge location, car data and intervals data
+                            List<TrackData> mergedData = MergeLCIData(locationDatas.data, carDatas.data, intervalDatas.data);
+                            allTrackData[driverId] = mergedData;
+
+                            Debug.Log($"Data fetched successfully for Driver {driverId}");
+                            Debug.Log($"Merged data count for Driver {driverId}: {mergedData.Count}");
+                            Debug.Log($"Total data stored: {allTrackData.Sum(d => d.Value.Count)}");
+                            setDebugText($"Data fetched successfully for Driver {driverId}");
+                        }
+                        catch (Exception e)
+                        {
+                            Debug.LogError($"Error parsing car data for Driver {driverId}: {e.Message}");
+                            setDebugText($"Error parsing car data for Driver {driverId}: {e.Message}");
+                        }
+                    }
+                catch (Exception e)
+                {
+                    Debug.LogError($"Error parsing location data for Driver {driverId}: {e.Message}");
+                }
     }
 
     public void GetAllDrivers(string sessionKey, string startTime, string endTime)

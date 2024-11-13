@@ -98,7 +98,8 @@ public class UI : MonoBehaviour
         {
             simController.timeMultiplier = 1;
             simController.StartSimulation();
-            startSimulationButton.SetActive(false);
+            // startSimulationButton.SetActive(false);
+            startSimulationButton.GetComponentInChildren<TMP_Text>().text = "Restart";
         }
     }
 

@@ -34,7 +34,6 @@ public class CarController : MonoBehaviour
 
     void Start()
     {
-        simController.OnTelemetryUpdated.AddListener(OnTelemetryUpdated);
         nameTag.GetComponentInChildren<TMP_Text>().text = DriverAcronym;
 
         // Initialize previous rotation
@@ -42,17 +41,18 @@ public class CarController : MonoBehaviour
 
         if (isReplica)
         {
-            driverDetails.SetActive(true);
+            simController.OnTelemetryUpdated.AddListener(OnTelemetryUpdated);
+            // driverDetails.SetActive(true);
             nameTag.SetActive(false);
         }
     }
 
     void Update()
     {
-        if (isReplica && simController.isSimulating)
-        {
-            OnTelemetryUpdated();
-        }
+        // if (isReplica && simController.isSimulating)
+        // {
+        //     OnTelemetryUpdated();
+        // }
         // CalculateWheelTurn();
     }
 
@@ -65,8 +65,12 @@ public class CarController : MonoBehaviour
 
         if (simController.selectedDriver.driver_number == driver.driver_number)
         {
+            if (driverDetails.activeSelf == false)
+            {
+                driverDetails.SetActive(true);
+            }
             trackData = simController.selectedDriverTrackData;
-             
+
             var telemetryPanelUpdater = driverDetails.GetComponentInChildren<TelemetryPanelUpdater>();
             telemetryPanelUpdater.trackData = trackData;
             telemetryPanelUpdater.driver = driver;

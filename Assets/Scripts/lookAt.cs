@@ -13,7 +13,8 @@ public class lookAt : MonoBehaviour
     {
         if (objectToLookAt == null) {
             // active = false;
-            objectToLookAt = GameObject.FindGameObjectWithTag("TestCam");
+            // objectToLookAt = GameObject.FindGameObjectWithTag("HeadNode");
+            objectToLookAt = GameObject.Find("HeadNode");
         }
         originalRotation = transform.eulerAngles;
     }
