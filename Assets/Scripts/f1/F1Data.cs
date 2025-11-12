@@ -42,11 +42,14 @@ public class F1Data : MonoBehaviour
         string carDataRequestUrl = string.Format(carDataUrl, sessionKey, driverId, startTime, endTime);
         string intervalDataRequestUrl = string.Format(intervalUrl, sessionKey, driverId);
 
-        if (!APILocal){
+        if (!APILocal)
+        {
             StartCoroutine(FetchTrackData(driverId, locationRequestUrl, carDataRequestUrl, intervalDataRequestUrl));
         }
-        else {
-            FetchTrackDataLocal(driverId);
+        else
+        {
+            // Use a coroutine for local fetch so we can use UnityWebRequest for StreamingAssets on builds
+            StartCoroutine(FetchTrackDataLocalCoroutine(driverId));
         }
     }
 
@@ -121,54 +124,150 @@ public class F1Data : MonoBehaviour
         }
     }
 
-    public void FetchTrackDataLocal(int driverId) {
-        var locationpath = "Assets/Scripts/datas/location/" + driverId + ".json";
-        var carDatapath = "Assets/Scripts/datas/car_data/" + driverId + ".json";
-        var intervalDatapath = "Assets/Scripts/datas/intervals/" + driverId + ".json";
-        var locationtext = System.IO.File.ReadAllText(locationpath);
-        var carDatatext = System.IO.File.ReadAllText(carDatapath);
-        var intervalDatatext = System.IO.File.ReadAllText(intervalDatapath);
+    // Coroutine that loads local JSON from Resources, StreamingAssets or (editor-only) Assets path.
+    private IEnumerator FetchTrackDataLocalCoroutine(int driverId)
+    {
+        // Relative locations for the three files
+        string relLocation = System.IO.Path.Combine("datas", "location", driverId + ".json");
+        string relCarData = System.IO.Path.Combine("datas", "car_data", driverId + ".json");
+        string relInterval = System.IO.Path.Combine("datas", "intervals", driverId + ".json");
 
+        string locationText = null;
+        string carDataText = null;
+        string intervalText = null;
+
+        // 1) Try Resources (Assets/Resources/datas/... without extension)
         try
+        {
+            string resLocPath = System.IO.Path.Combine("datas", "location", driverId.ToString());
+            string resCarPath = System.IO.Path.Combine("datas", "car_data", driverId.ToString());
+            string resIntPath = System.IO.Path.Combine("datas", "intervals", driverId.ToString());
+
+            TextAsset locTA = Resources.Load<TextAsset>(resLocPath);
+            TextAsset carTA = Resources.Load<TextAsset>(resCarPath);
+            TextAsset intTA = Resources.Load<TextAsset>(resIntPath);
+
+            if (locTA != null && carTA != null && intTA != null)
+            {
+                locationText = locTA.text;
+                carDataText = carTA.text;
+                intervalText = intTA.text;
+            }
+        }
+        catch (Exception) { /* ignore resource load errors and fall back */ }
+
+        // 2) Try StreamingAssets using UnityWebRequest (works in builds)
+        if (string.IsNullOrEmpty(locationText) || string.IsNullOrEmpty(carDataText) || string.IsNullOrEmpty(intervalText))
+        {
+            // Helper to read from StreamingAssets
+            IEnumerator ReadFromStreaming(string relPath, Action<string> onComplete)
+            {
+                string fullPath = System.IO.Path.Combine(Application.streamingAssetsPath, relPath);
+                string uri = fullPath;
+                if (!uri.StartsWith("http://") && !uri.StartsWith("https://") && !uri.StartsWith("file://") && !uri.StartsWith("jar:"))
                 {
-                    string locationJson = "{\"data\":" + locationtext + "}";
-                    LocationData locationDatas = JsonUtility.FromJson<LocationData>(locationJson);
-
-                    // Sort location data by date
-                    locationDatas.data = locationDatas.data.OrderBy(l => DateTime.Parse(l.date)).ToList();
-
-                        try
-                        {
-                            string carDataJson = "{\"data\":" + carDatatext + "}";
-                            CarData carDatas = JsonUtility.FromJson<CarData>(carDataJson);
-
-                            string intervalDataJson = "{\"data\":" + intervalDatatext + "}";
-                            IntervalList intervalDatas = JsonUtility.FromJson<IntervalList>(intervalDataJson);
-
-                            // Sort data by date
-                            carDatas.data = carDatas.data.OrderBy(c => DateTime.Parse(c.date)).ToList();
-                            //carDatas.data = carDatas.data.OrderBy(c => MVR.Kernel.GetTime().Parse(c.date)).ToList();
-                            intervalDatas.data = intervalDatas.data.OrderBy(i => DateTime.Parse(i.date)).ToList();
-
-                            // Merge location, car data and intervals data
-                            List<TrackData> mergedData = MergeLCIData(locationDatas.data, carDatas.data, intervalDatas.data);
-                            allTrackData[driverId] = mergedData;
-
-                            Debug.Log($"Data fetched successfully for Driver {driverId}");
-                            Debug.Log($"Merged data count for Driver {driverId}: {mergedData.Count}");
-                            Debug.Log($"Total data stored: {allTrackData.Sum(d => d.Value.Count)}");
-                            setDebugText($"Data fetched successfully for Driver {driverId}");
-                        }
-                        catch (Exception e)
-                        {
-                            Debug.LogError($"Error parsing car data for Driver {driverId}: {e.Message}");
-                            setDebugText($"Error parsing car data for Driver {driverId}: {e.Message}");
-                        }
-                    }
-                catch (Exception e)
-                {
-                    Debug.LogError($"Error parsing location data for Driver {driverId}: {e.Message}");
+                    uri = "file://" + uri;
                 }
+
+                using (UnityWebRequest uwr = UnityWebRequest.Get(uri))
+                {
+                    yield return uwr.SendWebRequest();
+
+                    if (uwr.result == UnityWebRequest.Result.Success)
+                    {
+                        onComplete(uwr.downloadHandler.text);
+                    }
+                    else
+                    {
+                        onComplete(null);
+                    }
+                }
+            }
+
+            // read each if missing
+            if (string.IsNullOrEmpty(locationText))
+            {
+                yield return ReadFromStreaming(relLocation, (s) => locationText = s);
+            }
+            if (string.IsNullOrEmpty(carDataText))
+            {
+                yield return ReadFromStreaming(relCarData, (s) => carDataText = s);
+            }
+            if (string.IsNullOrEmpty(intervalText))
+            {
+                yield return ReadFromStreaming(relInterval, (s) => intervalText = s);
+            }
+        }
+
+        // 3) Fallback to Editor-only Assets path (synchronous) - works in the Editor but not in packaged data
+        if (string.IsNullOrEmpty(locationText) || string.IsNullOrEmpty(carDataText) || string.IsNullOrEmpty(intervalText))
+        {
+            try
+            {
+                var editorLocation = System.IO.Path.Combine(Application.dataPath, "Scripts", "datas", "location", driverId + ".json");
+                var editorCar = System.IO.Path.Combine(Application.dataPath, "Scripts", "datas", "car_data", driverId + ".json");
+                var editorInterval = System.IO.Path.Combine(Application.dataPath, "Scripts", "datas", "intervals", driverId + ".json");
+
+                if (string.IsNullOrEmpty(locationText) && System.IO.File.Exists(editorLocation))
+                    locationText = System.IO.File.ReadAllText(editorLocation);
+                if (string.IsNullOrEmpty(carDataText) && System.IO.File.Exists(editorCar))
+                    carDataText = System.IO.File.ReadAllText(editorCar);
+                if (string.IsNullOrEmpty(intervalText) && System.IO.File.Exists(editorInterval))
+                    intervalText = System.IO.File.ReadAllText(editorInterval);
+            }
+            catch (Exception) { /* ignore */ }
+        }
+
+        // If still missing, log and exit
+        if (string.IsNullOrEmpty(locationText) || string.IsNullOrEmpty(carDataText) || string.IsNullOrEmpty(intervalText))
+        {
+            Debug.LogError($"Local track data not found for Driver {driverId}. Tried Resources, StreamingAssets and Assets/Scripts/datas.");
+            setDebugText($"Local track data not found for Driver {driverId}.");
+            yield break;
+        }
+
+        // Parse and process the JSON (same logic as before)
+        try
+        {
+            string locationJson = "{\"data\":" + locationText + "}";
+            LocationData locationDatas = JsonUtility.FromJson<LocationData>(locationJson);
+
+            // Sort location data by date
+            locationDatas.data = locationDatas.data.OrderBy(l => DateTime.Parse(l.date)).ToList();
+
+            try
+            {
+                string carDataJson = "{\"data\":" + carDataText + "}";
+                CarData carDatas = JsonUtility.FromJson<CarData>(carDataJson);
+
+                string intervalDataJson = "{\"data\":" + intervalText + "}";
+                IntervalList intervalDatas = JsonUtility.FromJson<IntervalList>(intervalDataJson);
+
+                // Sort data by date
+                carDatas.data = carDatas.data.OrderBy(c => DateTime.Parse(c.date)).ToList();
+                intervalDatas.data = intervalDatas.data.OrderBy(i => DateTime.Parse(i.date)).ToList();
+
+                // Merge location, car data and intervals data
+                List<TrackData> mergedData = MergeLCIData(locationDatas.data, carDatas.data, intervalDatas.data);
+                allTrackData[driverId] = mergedData;
+
+                Debug.Log($"Data fetched successfully for Driver {driverId}");
+                Debug.Log($"Merged data count for Driver {driverId}: {mergedData.Count}");
+                Debug.Log($"Total data stored: {allTrackData.Sum(d => d.Value.Count)}");
+                setDebugText($"Data fetched successfully for Driver {driverId}");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Error parsing car data for Driver {driverId}: {e.Message}");
+                setDebugText($"Error parsing car data for Driver {driverId}: {e.Message}");
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Error parsing location data for Driver {driverId}: {e.Message}");
+        }
+
+        yield break;
     }
 
     public void GetAllDrivers(string sessionKey, string startTime, string endTime)
